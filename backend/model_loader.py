@@ -7,12 +7,57 @@ import torch
 import torch.nn as nn
 import logging
 import numpy as np
+import os
+from pathlib import Path
+import shutil
+import sys
 
 logger = logging.getLogger(__name__)
 
 # Check if GPU is available
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {DEVICE}")
+
+# Set environment variables to handle Windows symlink issues FIRST
+os.environ['HF_HUB_DISABLE_SYMLINK_WARNING'] = '1'
+os.environ['HF_HUB_NO_SYMLINK'] = '1'
+
+# Use a cache directory that doesn't require symlinks
+CACHE_DIR = str(Path.home() / '.cache' / 'speechbrain_models_local')
+
+# Workaround for Windows symlink issue in huggingface_hub
+def patch_symlink_for_windows():
+    """Patch pathlib.Path.symlink_to to use copy on Windows instead."""
+    original_symlink_to = Path.symlink_to
+    
+    def symlink_to_wrapper(self, target, target_is_directory=False):
+        try:
+            # Try normal symlink first
+            return original_symlink_to(self, target, target_is_directory)
+        except OSError as e:
+            if "WinError 1314" in str(e) or "required privilege" in str(e):
+                # Windows permission error - use copy instead
+                logger.warning(f"Symlink failed for {self}, using copy instead")
+                try:
+                    if Path(target).is_dir():
+                        if self.exists():
+                            shutil.rmtree(self)
+                        shutil.copytree(target, self)
+                    else:
+                        self.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(target, self)
+                    return
+                except Exception as copy_err:
+                    logger.error(f"Copy also failed: {copy_err}")
+                    raise
+            else:
+                raise
+    
+    # Monkeypatch
+    Path.symlink_to = symlink_to_wrapper
+
+# Apply the patch before importing huggingface_hub or speechbrain
+patch_symlink_for_windows()
 
 
 class ECAPATDNNSpeakerEncoder:
@@ -36,18 +81,25 @@ class ECAPATDNNSpeakerEncoder:
         try:
             logger.info(f"Loading ECAPA-TDNN model: {self.model_name}")
             
+            # Create cache directory
+            cache_path = Path(CACHE_DIR)
+            cache_path.mkdir(parents=True, exist_ok=True)
+            
             # Import speechbrain speaker verifier
             from speechbrain.pretrained import SpeakerRecognition
             
+            # Load the model with custom cache dir
             self.model = SpeakerRecognition.from_hparams(
                 source=self.model_name,
-                savedir="~/.cache/speechbrain",
+                savedir=str(cache_path),
                 run_opts={"device": str(self.device)}
             )
             
             logger.info(f"✓ ECAPA-TDNN model loaded successfully (embedding_dim={self.embedding_dim})")
+            
         except Exception as e:
             logger.error(f"Failed to load ECAPA-TDNN model: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
             raise
     
     def extract_embedding(self, audio: np.ndarray, sample_rate: int = 16000) -> np.ndarray:
