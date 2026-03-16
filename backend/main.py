@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Voice Banking Authentication System",
     description="Authentication system using voice biometrics with anti-spoofing",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # Add CORS middleware
@@ -78,6 +78,36 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+
+# ==================== Startup & Shutdown Events ====================
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize application on startup.
+    Load all ML models into memory.
+    """
+    logger.info("=" * 80)
+    logger.info("STARTING VOICE BANKING AUTHENTICATION SYSTEM")
+    logger.info("=" * 80)
+    
+    try:
+        logger.info("Loading machine learning models...")
+        load_models()
+        logger.info("✓ All models loaded successfully")
+    except Exception as e:
+        logger.error(f"✗ Failed to load models on startup: {e}")
+        logger.error("The application may not function properly without models")
+        raise
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up on shutdown."""
+    logger.info("=" * 80)
+    logger.info("SHUTTING DOWN VOICE BANKING AUTHENTICATION SYSTEM")
+    logger.info("=" * 80)
 
 
 # ==================== Helper Functions ====================
@@ -137,7 +167,14 @@ async def root():
     """Root endpoint."""
     return {
         "status": "online",
-        "message": "Voice Banking Authentication System",
+        "message": "Voice Banking Authentication System v2.0",
+        "version": "2.0.0",
+        "features": [
+            "ECAPA-TDNN speaker verification",
+            "Anti-spoofing detection",
+            "OTP-based fallback authentication",
+            "Cosine similarity matching"
+        ],
         "endpoints": "/docs for API documentation"
     }
 
@@ -145,7 +182,11 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "2.0.0"
+    }
 
 
 # ==================== Registration & Enrollment Endpoints ====================

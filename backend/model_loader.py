@@ -1,12 +1,11 @@
 """
 Model loading utilities.
-Loads pretrained WavLM speaker embedding model and anti-spoofing model.
+Loads pretrained ECAPA-TDNN speaker embedding model and anti-spoofing model.
 """
 
 import torch
 import torch.nn as nn
 import logging
-from transformers import AutoModel, WavLMForXVector
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -16,58 +15,81 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {DEVICE}")
 
 
-class WavLMSpeakerEncoder:
-    """Load and use pretrained WavLM model for speaker embeddings."""
+class ECAPATDNNSpeakerEncoder:
+    """Load and use pretrained ECAPA-TDNN model from SpeechBrain for speaker embeddings."""
     
-    def __init__(self, model_name: str = "microsoft/wavlm-base-plus-sv"):
+    def __init__(self, model_name: str = "speechbrain/spkrec-ecapa-voxceleb"):
         """
-        Initialize WavLM speaker embedding model.
+        Initialize ECAPA-TDNN speaker embedding model.
         
         Args:
-            model_name: HuggingFace model identifier
+            model_name: SpeechBrain model identifier
         """
         self.model_name = model_name
         self.model = None
         self.device = DEVICE
+        self.embedding_dim = 192  # ECAPA-TDNN output dimension
         self.load_model()
     
     def load_model(self):
-        """Load WavLM model from HuggingFace."""
+        """Load ECAPA-TDNN model from SpeechBrain."""
         try:
-            logger.info(f"Loading model: {self.model_name}")
-            self.model = WavLMForXVector.from_pretrained(self.model_name)
-            self.model.to(self.device)
-            self.model.eval()
-            logger.info("WavLM model loaded successfully")
+            logger.info(f"Loading ECAPA-TDNN model: {self.model_name}")
+            
+            # Import speechbrain speaker verifier
+            from speechbrain.pretrained import SpeakerRecognition
+            
+            self.model = SpeakerRecognition.from_hparams(
+                source=self.model_name,
+                savedir="~/.cache/speechbrain",
+                run_opts={"device": str(self.device)}
+            )
+            
+            logger.info(f"✓ ECAPA-TDNN model loaded successfully (embedding_dim={self.embedding_dim})")
         except Exception as e:
-            logger.error(f"Failed to load WavLM model: {e}")
+            logger.error(f"Failed to load ECAPA-TDNN model: {e}")
             raise
     
     def extract_embedding(self, audio: np.ndarray, sample_rate: int = 16000) -> np.ndarray:
         """
-        Extract speaker embedding from audio.
+        Extract speaker embedding from audio using ECAPA-TDNN.
         
         Args:
             audio: Audio signal as numpy array
             sample_rate: Sample rate of audio (default 16000 Hz)
             
         Returns:
-            Speaker embedding vector
+            Normalized speaker embedding vector (192-dim)
         """
         try:
-            # Convert numpy array to torch tensor
+            # Ensure audio is float32
+            audio = np.asarray(audio, dtype=np.float32)
+            
+            # Convert to torch tensor
             audio_tensor = torch.from_numpy(audio).float()
             
-            # Add batch dimension and move to device
-            audio_tensor = audio_tensor.unsqueeze(0).to(self.device)
+            # Add batch dimension if needed
+            if audio_tensor.dim() == 1:
+                audio_tensor = audio_tensor.unsqueeze(0)
+            
+            # Move to device
+            audio_tensor = audio_tensor.to(self.device)
             
             # Extract embedding
             with torch.no_grad():
-                outputs = self.model(audio_tensor)
-                embedding = outputs.embeddings.cpu().numpy()
+                embedding = self.model.encode_batch(audio_tensor, wav_lens=torch.tensor([1.0]))
             
-            # Return the embedding (remove batch dimension)
-            return embedding[0]
+            # Convert to numpy and normalize
+            embedding = embedding.cpu().numpy()[0]  # Remove batch dimension
+            
+            # Normalize embedding to unit length (important for cosine similarity)
+            embedding_norm = np.linalg.norm(embedding)
+            if embedding_norm > 0:
+                embedding = embedding / embedding_norm
+            
+            logger.info(f"✓ Embedding extracted: shape={embedding.shape}, norm={np.linalg.norm(embedding):.4f}")
+            
+            return embedding.astype(np.float32)
             
         except Exception as e:
             logger.error(f"Failed to extract embedding: {e}")
@@ -159,36 +181,55 @@ class AntiSpoofDetector:
             return 0.5  # Default to uncertain if error occurs
 
 
-# Global model instances
-wavlm_model = None
+# Global model instances (cached to avoid repeated loading)
+speaker_encoder = None
 antispoof_model = None
 
 
 def load_models():
-    """Load all models globally."""
-    global wavlm_model, antispoof_model
+    """Load all models globally during startup."""
+    global speaker_encoder, antispoof_model
     
     try:
-        logger.info("Loading models...")
-        wavlm_model = WavLMSpeakerEncoder()
+        logger.info("=" * 50)
+        logger.info("Loading ML Models...")
+        logger.info("=" * 50)
+        
+        speaker_encoder = ECAPATDNNSpeakerEncoder()
+        logger.info("✓ ECAPA-TDNN Speaker Encoder loaded")
+        
         antispoof_model = AntiSpoofDetector()
-        logger.info("All models loaded successfully")
+        logger.info("✓ Anti-spoofing Model loaded")
+        
+        logger.info("=" * 50)
+        logger.info("All models loaded successfully!")
+        logger.info("=" * 50)
+        
     except Exception as e:
         logger.error(f"Failed to load models: {e}")
         raise
 
 
-def get_wavlm_model() -> WavLMSpeakerEncoder:
-    """Get WavLM model instance."""
-    global wavlm_model
-    if wavlm_model is None:
-        wavlm_model = WavLMSpeakerEncoder()
-    return wavlm_model
+def get_speaker_encoder() -> ECAPATDNNSpeakerEncoder:
+    """Get cached speaker encoder instance. Loads if not already loaded."""
+    global speaker_encoder
+    if speaker_encoder is None:
+        logger.warning("Speaker encoder not preloaded, loading now...")
+        speaker_encoder = ECAPATDNNSpeakerEncoder()
+    return speaker_encoder
 
 
 def get_antispoof_model() -> AntiSpoofDetector:
-    """Get anti-spoofing model instance."""
+    """Get cached anti-spoofing model instance. Loads if not already loaded."""
     global antispoof_model
     if antispoof_model is None:
+        logger.warning("Antispoof model not preloaded, loading now...")
         antispoof_model = AntiSpoofDetector()
     return antispoof_model
+
+
+# For backward compatibility
+def get_wavlm_model() -> ECAPATDNNSpeakerEncoder:
+    """Deprecated: Use get_speaker_encoder() instead. Returns ECAPA-TDNN model."""
+    logger.warning("get_wavlm_model() is deprecated. Use get_speaker_encoder() instead.")
+    return get_speaker_encoder()
