@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Voice Banking Authentication</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Add wav-encoder for proper WAV encoding -->
+    <script src="https://cdn.jsdelivr.net/npm/wav-encoder@1.3.0/dist/wav-encoder.js"></script>
+</head>
+<body>
+    <!-- WAV Encoder Fallback Script -->
+    <script>
+        // Ensure WavEncoder is available, add fallback
+        window.WavEncoderReady = false;
+        
+        function checkWavEncoderLoaded() {
+            return typeof WavEncoder !== 'undefined' && WavEncoder && WavEncoder.encode;
+        }
+        
+        // Manual WAV encoder fallback (simpler version)
+        async function encodeToWAV(samples, sampleRate) {
+            if (checkWavEncoderLoaded()) {
+                console.log('✓ Using WavEncoder library');
+                return await WavEncoder.encode({
+                    sampleRate: sampleRate,
+                    channelData: [samples]
+                });
+            } else {
+                console.warn('⚠ WavEncoder not available, using manual encoder');
+                return createWAVManual(samples, sampleRate);
+            }
+        }
+        
+        // Manual WAV file creation
+        function createWAVManual(samples, sampleRate) {
+            const numChannels = 1;
+            const sampleBits = 16;
+            const byteRate = sampleRate * numChannels * (sampleBits / 8);
+            const blockAlign = numChannels * (sampleBits / 8);
+            
+            // Create WAV header
+            const header = new ArrayBuffer(44);
+            const view = new DataView(header);
+            
+            // "RIFF" chunk descriptor
+            view.setUint8(0, 0x52); // 'R'
+            view.setUint8(1, 0x49); // 'I'
+            view.setUint8(2, 0x46); // 'F'
+            view.setUint8(3, 0x46); // 'F'
+            view.setUint32(4, 36 + samples.length * 2, true); // file length - 8
+            view.setUint8(8, 0x57); // 'W'
+            view.setUint8(9, 0x41); // 'A'
+            view.setUint8(10, 0x56); // 'V'
+            view.setUint8(11, 0x45); // 'E'
+            
+            // "fmt " sub-chunk
+            view.setUint8(12, 0x66); // 'f'
+            view.setUint8(13, 0x6D); // 'm'
+            view.setUint8(14, 0x74); // 't'
+            view.setUint8(15, 0x20); // ' '
+            view.setUint32(16, 16, true); // chunkSize
+            view.setUint16(20, 1, true); // pcm
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, sampleBits, true);
+            
+            // "data" sub-chunk  
+            view.setUint8(36, 0x64); // 'd'
+            view.setUint8(37, 0x61); // 'a'
+            view.setUint8(38, 0x74); // 't'
+            view.setUint8(39, 0x61); // 'a'
+            view.setUint32(40, samples.length * 2, true);
+            
+            // Encode PCM samples
+            const dataView = new DataView(new ArrayBuffer(samples.length * 2));
+            let offset = 0;
+            for (let i = 0; i < samples.length; i++) {
+                const sample = Math.max(-1, Math.min(1, samples[i])); // Clamp
+                dataView.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+            
+            // Combine header and data
+            const wav = new Uint8Array(header.byteLength + dataView.byteLength);
+            wav.set(new Uint8Array(header), 0);
+            wav.set(new Uint8Array(dataView.buffer), header.byteLength);
+            
+            console.log(`✓ Created WAV manually: ${wav.byteLength} bytes`);
+            return wav.buffer;
+        }
+        
+        // Verify encoder is loaded
+        if (checkWavEncoderLoaded()) {
+            console.log('✓ WavEncoder library loaded successfully');
+            window.WavEncoderReady = true;
+        } else {
+            console.warn('⚠ WavEncoder library not loaded, will use manual encoder');
+        }
+    </script>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                🎤 Voice Banking Auth
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/static/index.html">Home</a></li>
+                <li><a href="/static/register.html" class="active">Register</a></li>
+                <li><a href="/static/login.html">Login</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container auth-container">
+        <div class="auth-card">
+            <h1>Create Account</h1>
+            <p class="subtitle">Join our voice-based banking system</p>
+
+            <div class="auth-form">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" placeholder="John Doe" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="you@example.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="At least 6 characters" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input type="password" id="confirm-password" placeholder="Confirm your password" required>
+                </div>
+
+                <button class="btn btn-primary full-width" onclick="registerUser()">Create Account</button>
+
+                <div class="form-divider">or</div>
+
+                <p class="auth-link">
+                    Already have an account? <a href="/static/login.html">Sign In</a>
+                </p>
+            </div>
+
+            <div id="message" class="message"></div>
+        </div>
+
+        <div class="auth-card next-step" id="voice-enrollment" style="display: none;">
+            <h2>Record Voice Sample</h2>
+            <p class="subtitle">Speak for 3-5 seconds for voice enrollment</p>
+
+            <div class="voice-recorder">
+                <div class="recording-status" id="recording-status">Ready to record</div>
+                
+                <div class="recording-controls">
+                    <button class="btn btn-primary" id="start-recording" onclick="startRecording()">
+                        🎤 Start Recording
+                    </button>
+                    <button class="btn btn-danger" id="stop-recording" onclick="stopRecording()" style="display: none;">
+                        ⏹️ Stop Recording
+                    </button>
+                </div>
+
+                <div class="recording-timer" id="recording-timer">00:00</div>
+
+                <div id="audio-playback">
+                    <p>Recorded Audio:</p>
+                    <audio id="playback-audio" controls style="width: 100%; margin: 10px 0;"></audio>
+                </div>
+
+                <button class="btn btn-success full-width" id="enroll-button" onclick="enrollVoice()" style="display: none;">
+                    ✓ Enroll Voice
+                </button>
+            </div>
+
+            <div id="enrollment-message" class="message"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Voice Banking Authentication System</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/script.js"></script>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordingStartTime;
+        let timerInterval;
+        let userId;
+        let audioContext;
+        let sourceNode;
+
+        async function registerUser() {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const messageDiv = document.getElementById('message');
+
+            if (!name || !email || !password || !confirmPassword) {
+                showMessage(messageDiv, 'All fields are required', 'error');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showMessage(messageDiv, 'Passwords do not match', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage(messageDiv, 'Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('email', email);
+                formData.append('password', password);
+
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    userId = data.user_id;
+                    showMessage(messageDiv, 'Registration successful! Now record your voice.', 'success');
+                    
+                    setTimeout(() => {
+                        document.querySelector('.auth-form').style.display = 'none';
+                        document.getElementById('voice-enrollment').style.display = 'block';
+                    }, 1000);
+                } else {
+                    showMessage(messageDiv, data.detail || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showMessage(messageDiv, 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function startRecording() {
+            try {
+                console.log('=== Starting Voice Enrollment Recording ===');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+                
+                console.log('✓ Audio stream obtained');
+
+                // Setup audio context for raw sample capture
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                sourceNode = audioContext.createMediaStreamSource(stream);
+                
+                // Collect raw audio samples for WAV encoding
+                const audioData = [];
+                const BUFFER_SIZE = 2048;
+                
+                // Create ScriptProcessor to capture raw samples
+                const processor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+                sourceNode.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                processor.onaudioprocess = (e) => {
+                    const samples = new Float32Array(e.inputBuffer.getChannelData(0));
+                    audioData.push(...samples);
+                };
+                
+                console.log('✓ Using ScriptProcessor for raw sample capture');
+                
+                // Store for later use
+                window.enrollmentAudioData = audioData;
+                window.enrollmentAudioContext = audioContext;
+                window.enrollmentRecordingStream = stream;
+                
+                // Use MediaRecorder for preview playback
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    console.log('Recording stopped. Processing audio...');
+                    
+                    // Get collected raw samples
+                    const samples = window.enrollmentAudioData || [];
+                    const sampleRate = audioContext.sampleRate;
+                    console.log(`Collected ${samples.length} raw samples at ${sampleRate}Hz`);
+                    
+                    if (samples.length > 0) {
+                        try {
+                            console.log('Encoding raw samples to WAV...');
+                            
+                            // Resample from browser rate (usually 48kHz) to 16kHz for backend
+                            const targetRate = 16000;
+                            let finalSamples = samples;
+                            
+                            if (sampleRate !== targetRate) {
+                                console.log(`Resampling from ${sampleRate}Hz to ${targetRate}Hz...`);
+                                const ratio = targetRate / sampleRate;
+                                const resampledLength = Math.floor(samples.length * ratio);
+                                const resampled = new Float32Array(resampledLength);
+                                
+                                for (let i = 0; i < resampledLength; i++) {
+                                    const pos = i / ratio;
+                                    const left = Math.floor(pos);
+                                    const right = Math.ceil(pos);
+                                    const frac = pos - left;
+                                    
+                                    if (right >= samples.length) {
+                                        resampled[i] = samples[left];
+                                    } else {
+                                        // Linear interpolation
+                                        resampled[i] = samples[left] * (1 - frac) + samples[right] * frac;
+                                    }
+                                }
+                                finalSamples = resampled;
+                                console.log(`✓ Resampled to ${resampledLength} samples`);
+                            }
+                            
+                            // Encode to WAV using fallback-safe function
+                            const wavBuffer = await encodeToWAV(finalSamples, targetRate);
+                            
+                            const audioBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                const bytes = new Uint8Array(e.target.result);
+                                console.log(`✓ Encoded to WAV: ${audioBlob.size} bytes, magic bytes: ${String.fromCharCode(...bytes.slice(0, 4))}`);
+                            };
+                            reader.readAsArrayBuffer(audioBlob.slice(0, 4));
+                            
+                            window.recordedAudioBlob = audioBlob;
+                            console.log('✓ Audio blob ready for upload');
+                            
+                        } catch (encodeError) {
+                            console.error('WAV encoding failed:', encodeError);
+                            alert('Failed to encode audio: ' + encodeError.message + '\n\nPlease try again or refresh the page.');
+                            return;
+                        }
+                    } else {
+                        console.error('No audio samples collected during recording');
+                        alert('Failed to capture audio samples. Please check microphone and try again.');
+                        return;
+                    }
+                    
+                    // Show playback preview using MediaRecorder WebM
+                    if (audioChunks.length > 0) {
+                        const previewBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const audioUrl = URL.createObjectURL(previewBlob);
+                        document.getElementById('playback-audio').src = audioUrl;
+                    }
+                    
+                    document.getElementById('enroll-button').style.display = 'block';
+                };
+
+                mediaRecorder.start();
+                document.getElementById('start-recording').style.display = 'none';
+                document.getElementById('stop-recording').style.display = 'block';
+                document.getElementById('recording-status').textContent = '🔴 Recording...';
+
+                recordingStartTime = Date.now();
+                timerInterval = setInterval(updateTimer, 100);
+
+            } catch (error) {
+                console.error('Recording error:', error);
+                alert('Microphone access error: ' + error.message + '\n\nMake sure:\n1. You allow microphone access\n2. Microphone is not in use\n3. Microphone is properly connected');
+            }
+        }
+
+        function stopRecording() {
+            console.log('Stopping voice recording...');
+            mediaRecorder.stop();
+            clearInterval(timerInterval);
+            
+            // Close audio context and streams
+            if (window.enrollmentAudioContext) {
+                window.enrollmentAudioContext.close().catch(() => {});
+            }
+            
+            if (window.enrollmentRecordingStream) {
+                window.enrollmentRecordingStream.getTracks().forEach(track => track.stop());
+            }
+            
+            document.getElementById('start-recording').style.display = 'block';
+            document.getElementById('stop-recording').style.display = 'none';
+            document.getElementById('recording-status').textContent = '✓ Recording saved';
+        }
+
+        function updateTimer() {
+            const elapsed = Date.now() - recordingStartTime;
+            const seconds = Math.floor((elapsed / 1000) % 60);
+            const minutes = Math.floor(elapsed / 60000);
+            document.getElementById('recording-timer').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        async function enrollVoice() {
+            if (!window.recordedAudioBlob) {
+                showMessage(document.getElementById('enrollment-message'), 'Please record audio first', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('user_id', userId);
+                formData.append('audio', window.recordedAudioBlob, 'voice.wav');
+
+                const response = await fetch('/enroll_voice', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(document.getElementById('enrollment-message'), 
+                        '✅ Voice enrolled successfully! Redirecting to login...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/static/login.html';
+                    }, 2000);
+                } else {
+                    showMessage(document.getElementById('enrollment-message'), 
+                        '❌ ' + (data.detail || 'Enrollment failed'), 'error');
+                }
+            } catch (error) {
+                showMessage(document.getElementById('enrollment-message'), 
+                    '❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

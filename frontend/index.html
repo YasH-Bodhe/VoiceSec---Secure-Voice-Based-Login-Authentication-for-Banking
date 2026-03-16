@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Banking Authentication - Home</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                🎤 Voice Banking Auth
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/static/index.html" class="active">Home</a></li>
+                <li><a href="/static/register.html">Register</a></li>
+                <li><a href="/static/login.html">Login</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="hero-section">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Voice-Based Banking Authentication</h1>
+                <p>Secure login using voice biometrics with advanced anti-spoofing protection</p>
+                
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔐</div>
+                        <h3>Voice Biometrics</h3>
+                        <p>Authenticate using your unique voice signature</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">🛡️</div>
+                        <h3>Anti-Spoofing</h3>
+                        <p>Detects replay attacks and synthetic voices</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <h3>OTP Backup</h3>
+                        <p>Fallback authentication with one-time passwords</p>
+                    </div>
+                    
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Fast & Secure</h3>
+                        <p>Instant authentication in under 5 seconds</p>
+                    </div>
+                </div>
+
+                <div class="cta-buttons">
+                    <a href="/static/register.html" class="btn btn-primary">Create Account</a>
+                    <a href="/static/login.html" class="btn btn-secondary">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="info-section">
+        <div class="container">
+            <h2>How It Works</h2>
+            
+            <div class="steps-grid">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Register</h3>
+                    <p>Create an account with your email and password, then record your voice sample.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Extract Embedding</h3>
+                    <p>Your voice is processed using WavLM to create a unique speaker embedding.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Login</h3>
+                    <p>Enter your email and speak to verify your identity.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Verify</h3>
+                    <p>System compares your voice with stored embedding using cosine similarity.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <h3>Anti-Spoof Check</h3>
+                    <p>Advanced heuristics detect and block replay or synthetic attacks.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <h3>Authenticate</h3>
+                    <p>Successful authentication grants access. OTP backup available if needed.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Voice Banking Authentication System. All rights reserved.</p>
+            <p>Research Project | Not for production use without proper security audit</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
