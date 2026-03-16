@@ -12,9 +12,10 @@ from database import db
 
 logger = logging.getLogger(__name__)
 
-# Verification thresholds (optimized for ECAPA-TDNN)
-SIMILARITY_THRESHOLD_HIGH = 0.85   # >= this → authenticated directly
-SIMILARITY_THRESHOLD_LOW  = 0.70   # >= this and < HIGH → OTP fallback
+# Verification thresholds (optimized for ECAPA-TDNN with realistic expectations)
+# Based on VoxCeleb training data, same speaker typically scores 0.70-0.95
+SIMILARITY_THRESHOLD_HIGH = 0.65   # >= this → authenticated directly  
+SIMILARITY_THRESHOLD_LOW  = 0.50   # >= this and < HIGH → OTP fallback
 # < LOW → rejected outright
 
 
@@ -96,6 +97,8 @@ def verify_speaker(user_id: int, audio_file_path: str) -> dict:
             "similarity_score": None,
             "message": "No voice enrollment found for this user. Please enroll your voice first.",
             "reason": "no_enrollment",
+            "threshold_high": SIMILARITY_THRESHOLD_HIGH,
+            "threshold_low": SIMILARITY_THRESHOLD_LOW,
         }
     
     logger.info(f"[VERIFY] ✓ Stored embedding retrieved. Dimension: {len(stored_embedding)}")
@@ -122,6 +125,8 @@ def verify_speaker(user_id: int, audio_file_path: str) -> dict:
             "similarity_score": None,
             "message": "Failed to process the audio file. Please try again.",
             "reason": "preprocessing_error",
+            "threshold_high": SIMILARITY_THRESHOLD_HIGH,
+            "threshold_low": SIMILARITY_THRESHOLD_LOW,
         }
 
     # ================================================================== #
@@ -141,6 +146,8 @@ def verify_speaker(user_id: int, audio_file_path: str) -> dict:
             "similarity_score": None,
             "message": "Failed to extract voice features. Please try again.",
             "reason": "embedding_error",
+            "threshold_high": SIMILARITY_THRESHOLD_HIGH,
+            "threshold_low": SIMILARITY_THRESHOLD_LOW,
         }
 
     # ================================================================== #
@@ -205,4 +212,6 @@ def verify_speaker(user_id: int, audio_file_path: str) -> dict:
         "similarity_score": float(similarity),
         "message": message,
         "reason": reason,
+        "threshold_high": SIMILARITY_THRESHOLD_HIGH,
+        "threshold_low": SIMILARITY_THRESHOLD_LOW,
     }

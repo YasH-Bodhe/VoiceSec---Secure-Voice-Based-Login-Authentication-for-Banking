@@ -200,12 +200,13 @@ def normalize_audio(audio: np.ndarray) -> np.ndarray:
     
     if librosa:
         try:
-            audio = librosa.effects.trim(audio, top_db=40)[0]
-            logger.info(f"Normalize: trimmed with librosa - new shape={audio.shape}")
+            # Use lower top_db to preserve more of the speech signal
+            audio = librosa.effects.trim(audio, top_db=60, ref=np.max)[0]
+            logger.info(f"Normalize: trimmed with librosa (top_db=60) - new shape={audio.shape}")
         except Exception as e:
             logger.warning(f"Librosa trim failed: {e}, using fallback")
-            # Basic trim: remove leading/trailing low-energy frames
-            threshold = 1e-4
+            # Basic trim: remove leading/trailing low-energy frames (less aggressive)
+            threshold = 1e-5  # Much lower threshold to preserve more signal
             non_silent = np.where(np.abs(audio) > threshold)[0]
             if len(non_silent) > 0:
                 audio = audio[non_silent[0]: non_silent[-1] + 1]
