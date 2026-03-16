@@ -199,43 +199,4 @@ def verify_speaker(user_id: int, audio_file_path: str) -> dict:
         "similarity_score": float(similarity),
         "message": message,
         "reason": reason,
-
-    # ------------------------------------------------------------------ #
-    # 6. Decision
-    # ------------------------------------------------------------------ #
-    if similarity >= SIMILARITY_THRESHOLD_HIGH:
-        logger.info(f"Voice authentication PASSED for user {user_id} (score={similarity:.4f})")
-        return {
-            "success": True,
-            "authenticated": True,
-            "requires_otp": False,
-            "similarity_score": similarity,
-            "message": "Voice authentication successful!",
-            "reason": "authenticated",
-        }
-
-    if similarity >= SIMILARITY_THRESHOLD_LOW:
-        logger.info(
-            f"Voice partially matched for user {user_id} (score={similarity:.4f}) – OTP required"
-        )
-        return {
-            "success": True,
-            "authenticated": False,
-            "requires_otp": True,
-            "similarity_score": similarity,
-            "message": (
-                "Voice similarity is moderate. "
-                "An OTP has been sent to your registered email for additional verification."
-            ),
-            "reason": "low_confidence",
-        }
-
-    logger.info(f"Voice authentication FAILED for user {user_id} (score={similarity:.4f})")
-    return {
-        "success": True,
-        "authenticated": False,
-        "requires_otp": False,
-        "similarity_score": similarity,
-        "message": "Voice does not match the enrolled profile.",
-        "reason": "similarity_too_low",
     }

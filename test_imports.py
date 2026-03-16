@@ -42,9 +42,9 @@ failed_modules = []
 for module in core_modules:
     try:
         importlib.import_module(module)
-        print(f"✓ {module}")
+        print("[OK] {}".format(module))
     except ImportError as e:
-        print(f"✗ {module}: {str(e)[:50]}")
+        print("[FAIL] {}: {}".format(module, str(e)[:50]))
         failed_modules.append(module)
 
 # ============================================================================
@@ -56,18 +56,18 @@ print("-" * 80)
 
 try:
     import speechbrain
-    print(f"✓ SpeechBrain imported successfully")
+    print("[OK] SpeechBrain imported successfully")
     
     # Test loading a model (this is critical)
     print("  Loading ECAPA-TDNN model from SpeechBrain...")
     from speechbrain.pretrained import SpeakerRecognition
-    print("  ✓ SpeakerRecognition available")
+    print("  [OK] SpeakerRecognition available")
     
 except ImportError as e:
-    print(f"✗ SpeechBrain not installed or importable: {e}")
+    print("[FAIL] SpeechBrain not installed or importable: {}".format(e))
     failed_modules.append('speechbrain')
 except Exception as e:
-    print(f"✗ Error importing SpeechBrain: {e}")
+    print("[FAIL] Error importing SpeechBrain: {}".format(e))
     failed_modules.append('speechbrain')
 
 # ============================================================================
@@ -79,11 +79,11 @@ print("-" * 80)
 
 try:
     from database import db
-    print("✓ Database module imported successfully")
+    print("[OK] Database module imported successfully")
     
     # Test database connection
     user = db.get_user_by_id(1)
-    print(f"✓ Database connection working")
+    print("[OK] Database connection working")
     
     # Test database tables
     conn = db.get_connection()
@@ -92,12 +92,12 @@ try:
     tables = cursor.fetchall()
     conn.close()
     
-    print(f"✓ Found {len(tables)} tables:")
+    print("[OK] Found {} tables:".format(len(tables)))
     for table in tables:
-        print(f"  - {table[0]}")
+        print("  - {}".format(table[0]))
         
 except Exception as e:
-    print(f"✗ Database error: {e}")
+    print("[FAIL] Database error: {}".format(e))
     import traceback
     traceback.print_exc()
     failed_modules.append('database')
@@ -122,24 +122,24 @@ for module_name, display_name in backend_modules:
     try:
         if module_name == 'main':
             from main import app
-            print(f"✓ {display_name} ({module_name})")
+            print("[OK] {} ({})".format(display_name, module_name))
         elif module_name == 'model_loader':
             from model_loader import load_models, get_speaker_encoder, get_antispoof_model
-            print(f"✓ {display_name} ({module_name})")
+            print("[OK] {} ({})".format(display_name, module_name))
         elif module_name == 'enroll':
             from enroll import enroll_user_voice
-            print(f"✓ {display_name} ({module_name})")
+            print("[OK] {} ({})".format(display_name, module_name))
         elif module_name == 'verify':
             from verify import verify_speaker, cosine_similarity
-            print(f"✓ {display_name} ({module_name})")
+            print("[OK] {} ({})".format(display_name, module_name))
         elif module_name == 'antispoof':
             from antispoof import detect_spoof, analyze_audio_quality
-            print(f"✓ {display_name} ({module_name})")
+            print("[OK] {} ({})".format(display_name, module_name))
         elif module_name == 'otp_service':
             from otp_service import create_otp_for_user, verify_otp_for_user
-            print(f"✓ {display_name} ({module_name})")
+            print("[OK] {} ({})".format(display_name, module_name))
     except Exception as e:
-        print(f"✗ {display_name} ({module_name}): {str(e)[:50]}")
+        print("[FAIL] {} ({}): {}".format(display_name, module_name, str(e)[:50]))
         failed_modules.append(module_name)
 
 # ============================================================================
@@ -168,11 +168,11 @@ for env_var, display_name in config.items():
     value = os.getenv(env_var)
     if value:
         if 'PASSWORD' in env_var:
-            print(f"✓ {display_name}: [SET]")
+            print("[OK] {}: [SET]".format(display_name))
         else:
-            print(f"✓ {display_name}: {value[:20]}...")
+            print("[OK] {}: {}...".format(display_name, value[:20]))
     else:
-        print(f"⚠ {display_name}: NOT SET (will use defaults)")
+        print("[WARN] {}: NOT SET (will use defaults)".format(display_name))
         warnings += 1
 
 # ============================================================================
@@ -184,24 +184,24 @@ print("VERIFICATION SUMMARY")
 print("=" * 80)
 
 if not failed_modules and warnings == 0:
-    print("✓ ALL SYSTEMS READY!")
+    print("[OK] ALL SYSTEMS READY!")
     print("\nYou can now start the server with:")
     print("  python -m uvicorn backend.main:app --reload")
-    print("\n✅ System is fully operational")
+    print("\n[OK] System is fully operational")
     
 elif not failed_modules:
-    print(f"✓ CORE SYSTEMS OK ({warnings} config warnings)")
-    print("\n⚠️  Configuration Warnings:")
+    print("[OK] CORE SYSTEMS OK ({} config warnings)".format(warnings))
+    print("\n[WARN] Configuration Warnings:")
     print("  - Some environment variables are not set")
     print("  - The system will use defaults, but consider setting them for production")
     print("\nYou can start the server with:")
     print("  python -m uvicorn backend.main:app --reload")
     
 else:
-    print(f"❌ {len(failed_modules)} CRITICAL ISSUE(S) FOUND")
-    print(f"\nFailed modules/dependencies:")
+    print("[FAIL] {} CRITICAL ISSUE(S) FOUND".format(len(failed_modules)))
+    print("\nFailed modules/dependencies:")
     for module in failed_modules:
-        print(f"  - {module}")
+        print("  - {}".format(module))
     print("\nFix these issues before starting:")
     print("  pip install -r requirements.txt")
     sys.exit(1)
