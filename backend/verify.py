@@ -107,6 +107,12 @@ def verify_speaker(user_id: int, audio_file_path: str) -> dict:
     try:
         audio = preprocess_audio(audio_file_path)
         logger.info(f"[VERIFY] ✓ Audio preprocessed. Shape: {audio.shape}, dtype: {audio.dtype}, duration: {len(audio)/SAMPLE_RATE:.2f}s")
+        logger.info(f"[VERIFY] Audio stats - min: {audio.min():.6f}, max: {audio.max():.6f}, mean: {audio.mean():.6f}, rms: {np.sqrt(np.mean(audio**2)):.6f}")
+        
+        # Check if audio is essentially empty
+        if np.max(np.abs(audio)) < 1e-6:
+            logger.warning("[VERIFY] ⚠ Audio signal has very small amplitude!")
+            logger.warning("[VERIFY] Make sure the audio file contains actual voice recording")
     except Exception as e:
         logger.error(f"[VERIFY] ✗ Audio preprocessing failed: {e}")
         return {

@@ -43,6 +43,13 @@ def enroll_user_voice(user_id: int, audio_file_path: str) -> dict:
         logger.info("[ENROLL] Loading and preprocessing audio...")
         audio = preprocess_audio(audio_file_path)
         logger.info(f"[ENROLL] Audio preprocessed. Shape: {audio.shape}, dtype: {audio.dtype}, duration: {len(audio)/SAMPLE_RATE:.2f}s")
+        logger.info(f"[ENROLL] Audio stats - min: {audio.min():.6f}, max: {audio.max():.6f}, mean: {audio.mean():.6f}, rms: {np.sqrt(np.mean(audio**2)):.6f}")
+        
+        # Check if audio is essentially empty
+        if np.max(np.abs(audio)) < 1e-6:
+            logger.warning("[ENROLL] ⚠ Audio signal has very small amplitude!")
+            logger.warning("[ENROLL] Make sure the audio file contains actual voice recording")
+        
         
         # Save preprocessed audio
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

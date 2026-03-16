@@ -117,6 +117,12 @@ class ECAPATDNNSpeakerEncoder:
             # Ensure audio is float32
             audio = np.asarray(audio, dtype=np.float32)
             
+            logger.info(f"Embedding extraction: audio shape={audio.shape}, dtype={audio.dtype}, min={audio.min():.6f}, max={audio.max():.6f}, mean={audio.mean():.6f}")
+            
+            # Check if audio is essentially empty
+            if np.max(np.abs(audio)) < 1e-6:
+                logger.warning("Audio signal has very small amplitude (< 1e-6), embedding may be unreliable")
+            
             # Convert to torch tensor
             audio_tensor = torch.from_numpy(audio).float()
             
@@ -124,27 +130,47 @@ class ECAPATDNNSpeakerEncoder:
             if audio_tensor.dim() == 1:
                 audio_tensor = audio_tensor.unsqueeze(0)
             
+            logger.info(f"Audio tensor shape (after batch): {audio_tensor.shape}")
+            
             # Move to device
             audio_tensor = audio_tensor.to(self.device)
             
-            # Extract embedding
+            # Extract embedding using ECAPA-TDNN
+            # wav_lens parameter should be relative lengths [0-1], one per batch sample
+            # Since we have 1 sample at full length, use tensor([1.0])
             with torch.no_grad():
-                embedding = self.model.encode_batch(audio_tensor, wav_lens=torch.tensor([1.0]))
+                # Try encoding with proper wav_lens
+                try:
+                    embedding = self.model.encode_batch(
+                        audio_tensor, 
+                        wav_lens=torch.tensor([1.0], device=self.device)
+                    )
+                except TypeError:
+                    # Fallback if encode_batch doesn't accept wav_lens as kwarg
+                    logger.warning("Fallback: encode_batch called without wav_lens")
+                    embedding = self.model.encode_batch(audio_tensor)
             
             # Convert to numpy and normalize
             embedding = embedding.cpu().numpy()[0]  # Remove batch dimension
             
+            logger.info(f"Raw embedding: shape={embedding.shape}, dtype={embedding.dtype}, norm={np.linalg.norm(embedding):.6f}")
+            
             # Normalize embedding to unit length (important for cosine similarity)
             embedding_norm = np.linalg.norm(embedding)
-            if embedding_norm > 0:
+            if embedding_norm > 1e-6:  # Only normalize if not zero
                 embedding = embedding / embedding_norm
+            else:
+                logger.warning(f"Embedding norm is very small ({embedding_norm:.6f}), returning as-is")
             
-            logger.info(f"✓ Embedding extracted: shape={embedding.shape}, norm={np.linalg.norm(embedding):.4f}")
+            logger.info(f"✓ Embedding extracted: shape={embedding.shape}, norm={np.linalg.norm(embedding):.6f}")
             
             return embedding.astype(np.float32)
             
         except Exception as e:
             logger.error(f"Failed to extract embedding: {e}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(traceback.format_exc())
             raise
 
 

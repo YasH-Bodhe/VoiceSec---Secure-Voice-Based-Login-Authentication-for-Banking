@@ -147,6 +147,7 @@ class Database:
         cursor = conn.cursor()
         
         embedding_json = json.dumps(embedding)
+        logger.info(f"[DB] Saving embedding for user {user_id}: length={len(embedding)}, json_size={len(embedding_json)} bytes")
         
         cursor.execute('''
             UPDATE users 
@@ -156,7 +157,7 @@ class Database:
         
         conn.commit()
         conn.close()
-        logger.info(f"Voice embedding saved for user {user_id}")
+        logger.info(f"[DB] ✓ Voice embedding saved for user {user_id}")
     
     def get_voice_embedding(self, user_id: int) -> list or None:
         """Get voice embedding for user."""
@@ -168,8 +169,12 @@ class Database:
         conn.close()
         
         if result and result[0]:
-            return json.loads(result[0])
-        return None
+            embedding = json.loads(result[0])
+            logger.info(f"[DB] Retrieved embedding for user {user_id}: length={len(embedding)}")
+            return embedding
+        else:
+            logger.warning(f"[DB] No embedding found for user {user_id}")
+            return None
     
     def save_otp(self, user_id: int, otp_code: str, expiry_time: int) -> int:
         """

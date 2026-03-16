@@ -192,18 +192,39 @@ def load_audio(audio_path: str) -> np.ndarray:
 
 def normalize_audio(audio: np.ndarray) -> np.ndarray:
     """Normalize audio to [-1, 1] range."""
+    original_max = np.max(np.abs(audio)) if audio.size else 0
+    original_mean = np.mean(np.abs(audio)) if audio.size else 0
+    original_len = len(audio)
+    
+    logger.info(f"Normalize: before - shape={audio.shape}, max={original_max:.6f}, mean={original_mean:.6f}")
+    
     if librosa:
-        audio = librosa.effects.trim(audio)[0]
+        try:
+            audio = librosa.effects.trim(audio, top_db=40)[0]
+            logger.info(f"Normalize: trimmed with librosa - new shape={audio.shape}")
+        except Exception as e:
+            logger.warning(f"Librosa trim failed: {e}, using fallback")
+            # Basic trim: remove leading/trailing low-energy frames
+            threshold = 1e-4
+            non_silent = np.where(np.abs(audio) > threshold)[0]
+            if len(non_silent) > 0:
+                audio = audio[non_silent[0]: non_silent[-1] + 1]
+                logger.info(f"Normalize: fallback trim - new shape={audio.shape}")
     else:
         # Basic trim: remove leading/trailing low-energy frames
         threshold = 1e-4
         non_silent = np.where(np.abs(audio) > threshold)[0]
         if len(non_silent) > 0:
             audio = audio[non_silent[0]: non_silent[-1] + 1]
+            logger.info(f"Normalize: basic trim - new shape={audio.shape}")
 
-    max_val = np.max(np.abs(audio)) if audio.size else 0
+    max_val = np.max(np.abs(audio)) if audio.size else 1.0
     if max_val > 0:
         audio = audio / max_val
+        logger.info(f"Normalize: after - shape={audio.shape}, max={np.max(np.abs(audio)):.6f}, scale_factor={max_val:.6f}")
+    else:
+        logger.warning("Normalize: audio max is 0! Returning as-is")
+    
     return audio
 
 
